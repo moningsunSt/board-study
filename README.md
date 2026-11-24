@@ -9,6 +9,90 @@
 단순 TODO 앱이 아닌, 실제 서비스에 가까운 게시판 도메인을 기준으로
 여러 기술들을 단계적으로 갈아 끼우며 비교/학습한다.
 
+## 로컬 개발 환경
+
+학습에 필요한 DB는 Docker Compose로 구성한다. 상세 구성·연결·운영은 `docs/common/database.md`를 참조한다.
+
+### 사전 요구사항
+- Docker Desktop (또는 Docker Engine + Compose v2)
+
+### 기동
+
+```bash
+cd docker
+docker compose up -d
+```
+
+### 구성
+
+| 서비스 | 컨테이너 | 포트 | DB | 앱 계정 |
+| --- | --- | --- | --- | --- |
+| PostgreSQL 16 | `postgres` | `5432` | `board` | `board_app` / `app1234` |
+| MongoDB 7 | `mongo` | `27017` | `board` | `board_app` / `app1234` |
+
+### 중지·초기화
+
+```bash
+cd docker
+docker compose stop      # 중지 (데이터 유지)
+docker compose down      # 컨테이너 제거 (볼륨 유지)
+docker compose down -v   # 볼륨까지 제거 (완전 초기화)
+```
+
+> 프레임워크 실습 시 위 앱 계정으로 바로 연결한다. 상세 연결 URL은 `docs/common/database.md` 참조.
+
+## 웹 화면 (UI)
+
+웹 화면 구현 시 재사용할 **퍼블리싱 자산**을 `ui/`에 둔다.
+프레임워크로 화면을 구현할 때 이 마크업·스타일·컴포넌트를 참조한다.
+상세 설계는 `docs/ui-publishing/`을 참조한다.
+
+### 구조
+
+```text
+ui/
+├── html/                 # 화면 마크업 (메뉴 단위 분류)
+│   ├── board/            # 게시판 (목록·상세·작성)
+│   ├── auth/             # 회원 (로그인·가입)
+│   ├── my/               # 내 정보
+│   ├── admin/            # 관리자
+│   ├── error/            # 오류 페이지 (400/401/403/404/500/기타)
+│   └── components.html   # UI 컴포넌트 데모
+├── css/                  # SCSS 소스 (+ 빌드 산출 main.css)
+├── js/                   # 공통 JS (최소 인터랙션)
+├── image/                # 이미지·로고
+└── font/                 # 웹 폰트
+```
+
+### 기술
+
+- **SCSS + Tailwind CSS** (desktop-first: tablet ≤ 1024px, mobile ≤ 640px)
+- 컴포넌트는 **BEM**, 레이아웃·간격은 **Tailwind utility**
+- JS는 최소 인터랙션(모바일 nav·탭·모달·토스트)만 Vanilla로 직접 구현
+
+### 빌드
+
+```bash
+cd ui
+npm install        # 최초 1회
+npm run build      # SCSS → Tailwind 컴파일로 css/main.css 생성
+```
+
+> `css/main.css`는 빌드 산출물로 git 제외되며, 소스는 `css/main.scss`만 관리한다.
+
+### 화면 구현 시 규칙
+
+1. 새 화면은 `ui/html/<메뉴>/` 아래에 추가한다.
+2. 공통 컴포넌트(toast·modal·field·empty·tabs)는 `docs/ui-publishing/ui-guide.md` 규칙을 따른다.
+3. 로고·이미지는 `ui/image/`, 상대경로로 참조한다.
+
+### 참조 문서
+
+- `docs/ui-publishing/screen-specification.md` — 화면 정의
+- `docs/ui-publishing/storyboard.md` — 화면 흐름·와이어프레임
+- `docs/ui-publishing/ui-guide.md` — 피드백 컴포넌트 규칙
+- `docs/ui-publishing/decisions.md` — 기술 결정 기록
+
 ## 컨벤션
 
 ### 워크스페이스 규칙
@@ -80,10 +164,22 @@ board-study/
 ├── .agent/                  # AI 보조원 전용 지시 문서
 │   └── AGENT.md             # AI의 역할·권한·작업 절차 (사람용 아님)
 ├── .private/                # 개인 작업 공간 (커밋·공유 금지, AI 접근 금지)
+├── docker/                  # 공통 인프라 (Docker Compose)
+│   ├── compose.yml          # PostgreSQL / MongoDB 정의
+│   ├── .env                 # 기본 설정 (git 관리)
+│   ├── postgres/init/       # PostgreSQL 초기화 스크립트
+│   └── mongo/init/          # MongoDB 초기화 스크립트
+├── ui/                      # 웹 화면(퍼블리싱) 공통 자산
+│   ├── html/                # 화면 마크업 (메뉴 단위)
+│   ├── css/                 # SCSS 소스
+│   ├── js/                  # 공통 JS
+│   ├── image/               # 이미지·로고
+│   └── font/                # 웹 폰트
 ├── docs/                    # 문서 루트
 │   └── common/              # 모든 스택이 공유하는 공통 문서
 │       ├── requirements.md  # 요구사항 (비즈니스 관점)
-│       └── features.md      # 구현 기능 목록 (체크리스트)
+│       ├── features.md      # 구현 기능 목록 (체크리스트)
+│       └── database.md      # 학습용 DB 구성·연결 정보
 └── README.md                # 프로젝트 최상위 안내
 ```
 
@@ -93,8 +189,11 @@ board-study/
 | `README_<stack-name>.md` | 특정 스택 시도의 개요와 진입점 (root에 위치) |
 | `.agent/AGENT.md` | AI 보조원 전용 규칙. 사람이 직접 읽을 필요는 없다 |
 | `.private/` | 개인·비공개 작업 공간. 커밋/공유 금지이며 AI도 접근하지 않는다 |
+| `docker/` | 학습용 DB 등 공통 인프라 (Docker Compose) |
+| `ui/` | 웹 화면(퍼블리싱) 공통 자산 (HTML·SCSS·JS) |
 | `docs/common/requirements.md` | 모든 스택이 참조하는 요구사항 |
 | `docs/common/features.md` | 모든 스택이 참조하는 구현 기능 목록 |
+| `docs/common/database.md` | 학습용 DB 구성·연결 정보·운영 명령 |
 | `docs/common/` (그 외) | 공통 ERD·API 명세·스키마 등 |
 
 ## 기본 절차
